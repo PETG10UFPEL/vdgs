@@ -1,0 +1,20 @@
+ubs_pelotas = [
+    {"nome": "UBS Sansca", "lat": -31.7569244, "lng": -52.3467475, "bairro": "Centro"},
+    {"nome": "UBS Porto", "lat": -31.7789381, "lng": -52.3363786, "bairro": "Porto"},
+    {"nome": "UBS Fátima", "lat": -31.7733215, "lng": -52.3268329, "bairro": "São Gonçalo"},
+    {"nome": "UBS Simões Lopes", "lat": -31.7738246, "lng": -52.3565292, "bairro": "Simões Lopes"},
+    {"nome": "UBS Osório", "lat": -31.7804775, "lng": -52.3500625, "bairro": "Porto"},
+    {"nome": "UBS PAM Fragata", "lat": -31.7545839, "lng": -52.3836795, "bairro": "Fragata"},
+    {"nome": "UBS Cohab Guabiroba", "lat": -31.7477222, "lng": -52.3676325, "bairro": "Fragata"},
+    {"nome": "UBS Fraget", "lat": -31.7524950, "lng": -52.3688850, "bairro": "Fragata"},
+    {"nome": "UBS Areal I", "lat": -31.7547494, "lng": -52.3286805, "bairro": "Areal"},
+    {"nome": "UBS CSU Areal", "lat": -31.7553824, "lng": -52.3170841, "bairro": "Areal"},
+    {"nome": "UBS CSU Cruzeiro", "lat": -31.7636424, "lng": -52.3231341, "bairro": "Areal"},
+    {"nome": "UBS Leocádia", "lat": -31.7509573, "lng": -52.3234772, "bairro": "Areal"},
+    {"nome": "UBS Bom Jesus", "lat": -31.7460013, "lng": -52.3195169, "bairro": "Areal"},
+    {"nome": "UBS Santa Terezinha", "lat": -31.7258671, "lng": -52.3495507, "bairro": "Três Vendas"},
+    {"nome": "UBS Salgado Filho", "lat": -31.7328613, "lng": -52.3366328, "bairro": "Três Vendas"},
+    {"nome": "UBS Vila Municipal", "lat": -31.7304988, "lng": -52.3268676, "bairro": "Três Vendas"},
+    {"nome": "UBS Arco Íris", "lat": -31.7201459, "lng": -52.3052027, "bairro": "Três Vendas"},
+    {"nome": "UBS Cohab Lindóia", "lat": -31.7097515, "lng": -52.3479600, "bairro": "Três Vendas"}
+]

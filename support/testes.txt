@@ -1,0 +1,11 @@
+rua Professor Araujo, 1105
+rua Senador Mendonça, 410 
+rua Santos Dumont, 525
+rua Major Cícero, 890
+rua Padre Felicio, 954
+rua Marcílio Dias, 2073
+rua Santos Dumont, 550
+rua Dr. Amarante, 602
+
+
+

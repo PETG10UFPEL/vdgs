@@ -1,0 +1,17 @@
+ O volume na unidade C n∆o tem nome.
+ O N£mero de SÇrie do Volume Ç CE48-F4A9
+
+ Pasta de C:\Users\aljma\G10\aplicativos\route.5
+
+19/02/2026  09:34    <DIR>          .
+19/02/2026  09:34    <DIR>          ..
+18/02/2026  16:38    <DIR>          .venv
+18/02/2026  16:38    <DIR>          .vs
+19/02/2026  09:34                 0 a.txt
+18/02/2026  22:21            14.150 app_route5.py
+18/02/2026  16:38    <DIR>          assets
+19/02/2026  09:32               138 requirements.txt
+18/02/2026  22:21    <DIR>          support
+12/02/2026  13:25             1.733 ubs.txt
+               4 arquivo(s)         16.021 bytes
+               6 pasta(s)   71.311.884.288 bytes dispon°veis
