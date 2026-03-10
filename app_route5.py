@@ -37,7 +37,8 @@ UBS_PELOTAS = {
 
 MAX_STOPS = 8
 OSRM_TABLE_URL = "https://router.project-osrm.org/table/v1/{profile}/{coords}"
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
+GOOGLE_PLACES_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
 
 
 @dataclass
@@ -49,19 +50,27 @@ class Stop:
 
 
 # =========================
-# Geocoding
+# Geocoding — Google Maps API
 # =========================
 @st.cache_data(show_spinner=False, ttl=24 * 3600)
 def geocode_pelotas(address: str) -> Optional[Tuple[float, float]]:
-    params = {"q": f"{address}, Pelotas, RS, Brasil", "format": "json", "limit": 1}
-    headers = {"User-Agent": "rota-visita-ufpel/1.0 (educational)"}
+    api_key = st.secrets.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        st.error("Chave GOOGLE_API_KEY não encontrada nos Secrets do Streamlit.")
+        return None
+    params = {
+        "address": f"{address}, Pelotas, RS, Brasil",
+        "key": api_key,
+        "components": "country:BR|administrative_area:RS",
+    }
     try:
-        r = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=(4, 20))
+        r = requests.get(GOOGLE_GEOCODE_URL, params=params, timeout=(6, 20))
         r.raise_for_status()
         data = r.json()
-        if not data:
+        if data.get("status") != "OK" or not data.get("results"):
             return None
-        return float(data[0]["lat"]), float(data[0]["lon"])
+        loc = data["results"][0]["geometry"]["location"]
+        return float(loc["lat"]), float(loc["lng"])
     except Exception:
         return None
 
@@ -114,28 +123,35 @@ def best_cycle_order(cost_matrix: List[List[float]]) -> Tuple[List[int], float]:
 
 @st.cache_data(show_spinner=False, ttl=10 * 60)
 def search_suggestions(query: str) -> List[Tuple[str, float, float]]:
-    """Busca até 5 sugestões de endereço em Pelotas via Nominatim."""
+    """Busca até 5 sugestões via Google Places Autocomplete + Geocoding."""
     if len(query.strip()) < 4:
         return []
+    api_key = st.secrets.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        return []
+    # Places Autocomplete restrito a Pelotas/BR
     params = {
-        "q": f"{query}, Pelotas, RS, Brasil",
-        "format": "json",
-        "limit": 5,
-        "addressdetails": 1,
-        "countrycodes": "br",
+        "input": f"{query}, Pelotas, RS",
+        "key": api_key,
+        "language": "pt-BR",
+        "components": "country:br",
+        "location": "-31.7654,-52.3376",  # centro de Pelotas
+        "radius": 20000,
+        "strictbounds": "true",
     }
-    headers = {"User-Agent": "rota-visita-ufpel/1.0 (educational)"}
     try:
-        r = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=(4, 10))
+        r = requests.get(GOOGLE_PLACES_URL, params=params, timeout=(6, 15))
         r.raise_for_status()
-        data = r.json()
+        predictions = r.json().get("predictions", [])
         results = []
-        for item in data:
-            display = item.get("display_name", "")
-            # Simplifica o label removendo ", Brasil" e partes longas
-            parts = display.split(",")
-            short = ", ".join(p.strip() for p in parts[:4])
-            results.append((short, float(item["lat"]), float(item["lon"])))
+        for p in predictions[:5]:
+            desc = p.get("description", "")
+            # Geocodifica cada sugestão para obter coords
+            coords = geocode_pelotas(desc)
+            if coords:
+                # Label curto: remove ", Brasil" do final
+                short = desc.replace(", Brasil", "").replace(", Brazil", "")
+                results.append((short, coords[0], coords[1]))
         return results
     except Exception:
         return []
@@ -321,11 +337,6 @@ for i in range(1, st.session_state.num_stops + 1):
         unsafe_allow_html=True,
     )
 
-    # Se há uma sugestão pendente, aplica ANTES de renderizar o widget
-    pending_key = f"pending_addr_{i}"
-    if pending_key in st.session_state:
-        st.session_state[f"addr_{i}"] = st.session_state.pop(pending_key)
-
     # Campo de texto para digitação
     typed = st.text_input(
         f"Endereço {i}",
@@ -336,9 +347,7 @@ for i in range(1, st.session_state.num_stops + 1):
     st.caption("📱 No celular: toque no campo e use o ícone 🎤 do teclado para falar o endereço.")
 
     # Autocomplete: mostra sugestões se o usuário digitou algo
-    # Não mostra sugestões se o endereço já foi confirmado via autocomplete
-    addr_confirmed = bool(st.session_state.get(f"coords_{i}"))
-    if typed and len(typed.strip()) >= 4 and not addr_confirmed:
+    if typed and len(typed.strip()) >= 4:
         sugestoes = search_suggestions(typed.strip())
         if sugestoes:
             opcoes = ["— selecione uma sugestão —"] + [s[0] for s in sugestoes]
@@ -349,8 +358,9 @@ for i in range(1, st.session_state.num_stops + 1):
                 label_visibility="collapsed",
             )
             if escolha != "— selecione uma sugestão —":
-                # Grava em chave pendente (não toca no widget ativo) e salva coords
-                st.session_state[pending_key] = escolha
+                # Preenche o campo com a sugestão escolhida
+                st.session_state[f"addr_{i}"] = escolha
+                # Salva coordenadas já resolvidas para evitar geocoding redundante
                 idx_sug = opcoes.index(escolha) - 1
                 lat_s, lon_s = sugestoes[idx_sug][1], sugestoes[idx_sug][2]
                 st.session_state[f"coords_{i}"] = (lat_s, lon_s)
@@ -383,10 +393,9 @@ st.divider()
 # =========================
 # Calcular rota
 # =========================
-if st.button("🚀 Calcular melhor rota", type="primary"):
-    st.session_state["_calcular"] = True
+calc = st.button("🚀 Calcular melhor rota", type="primary")
 
-if st.session_state.pop("_calcular", False):
+if calc:
     # Coleta endereços preenchidos
     raw = []
     for i in range(1, st.session_state.num_stops + 1):
