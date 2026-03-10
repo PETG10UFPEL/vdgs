@@ -15,6 +15,7 @@ import streamlit as st
 # Config
 # =========================
 UBS_PELOTAS = {
+    "Centro de Especialidades — Centro": (-31.7646418, -52.3454001),
     "UBS Sansca — Centro": (-31.7569244, -52.3467475),
     "UBS Porto — Porto": (-31.7789381, -52.3363786),
     "UBS Fátima — São Gonçalo": (-31.7733215, -52.3268329),
@@ -35,10 +36,9 @@ UBS_PELOTAS = {
     "UBS Cohab Lindóia — Três Vendas": (-31.7097515, -52.3479600),
 }
 
-MAX_STOPS = 8
+MAX_STOPS = 10
 OSRM_TABLE_URL = "https://router.project-osrm.org/table/v1/{profile}/{coords}"
-GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
-GOOGLE_PLACES_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 
 
 @dataclass
@@ -50,27 +50,19 @@ class Stop:
 
 
 # =========================
-# Geocoding — Google Maps API
+# Geocoding
 # =========================
 @st.cache_data(show_spinner=False, ttl=24 * 3600)
 def geocode_pelotas(address: str) -> Optional[Tuple[float, float]]:
-    api_key = st.secrets.get("GOOGLE_API_KEY", "")
-    if not api_key:
-        st.error("Chave GOOGLE_API_KEY não encontrada nos Secrets do Streamlit.")
-        return None
-    params = {
-        "address": f"{address}, Pelotas, RS, Brasil",
-        "key": api_key,
-        "components": "country:BR|administrative_area:RS",
-    }
+    params = {"q": f"{address}, Pelotas, RS, Brasil", "format": "json", "limit": 1}
+    headers = {"User-Agent": "rota-visita-ufpel/1.0 (educational)"}
     try:
-        r = requests.get(GOOGLE_GEOCODE_URL, params=params, timeout=(6, 20))
+        r = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=(4, 20))
         r.raise_for_status()
         data = r.json()
-        if data.get("status") != "OK" or not data.get("results"):
+        if not data:
             return None
-        loc = data["results"][0]["geometry"]["location"]
-        return float(loc["lat"]), float(loc["lng"])
+        return float(data[0]["lat"]), float(data[0]["lon"])
     except Exception:
         return None
 
@@ -123,35 +115,28 @@ def best_cycle_order(cost_matrix: List[List[float]]) -> Tuple[List[int], float]:
 
 @st.cache_data(show_spinner=False, ttl=10 * 60)
 def search_suggestions(query: str) -> List[Tuple[str, float, float]]:
-    """Busca até 5 sugestões via Google Places Autocomplete + Geocoding."""
+    """Busca até 5 sugestões de endereço em Pelotas via Nominatim."""
     if len(query.strip()) < 4:
         return []
-    api_key = st.secrets.get("GOOGLE_API_KEY", "")
-    if not api_key:
-        return []
-    # Places Autocomplete restrito a Pelotas/BR
     params = {
-        "input": f"{query}, Pelotas, RS",
-        "key": api_key,
-        "language": "pt-BR",
-        "components": "country:br",
-        "location": "-31.7654,-52.3376",  # centro de Pelotas
-        "radius": 20000,
-        "strictbounds": "true",
+        "q": f"{query}, Pelotas, RS, Brasil",
+        "format": "json",
+        "limit": 5,
+        "addressdetails": 1,
+        "countrycodes": "br",
     }
+    headers = {"User-Agent": "rota-visita-ufpel/1.0 (educational)"}
     try:
-        r = requests.get(GOOGLE_PLACES_URL, params=params, timeout=(6, 15))
+        r = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=(4, 10))
         r.raise_for_status()
-        predictions = r.json().get("predictions", [])
+        data = r.json()
         results = []
-        for p in predictions[:5]:
-            desc = p.get("description", "")
-            # Geocodifica cada sugestão para obter coords
-            coords = geocode_pelotas(desc)
-            if coords:
-                # Label curto: remove ", Brasil" do final
-                short = desc.replace(", Brasil", "").replace(", Brazil", "")
-                results.append((short, coords[0], coords[1]))
+        for item in data:
+            display = item.get("display_name", "")
+            # Simplifica o label removendo ", Brasil" e partes longas
+            parts = display.split(",")
+            short = ", ".join(p.strip() for p in parts[:4])
+            results.append((short, float(item["lat"]), float(item["lon"])))
         return results
     except Exception:
         return []
@@ -306,7 +291,7 @@ with st.expander("ℹ️ Como funciona", expanded=False):
 # =========================
 colA, colB = st.columns([3, 2])
 with colA:
-    ubs_name = st.selectbox("🏥 UBS (partida e retorno)", list(UBS_PELOTAS.keys()))
+    ubs_name = st.selectbox("🏥 UBS e Centro de Especialidades (partida e retorno)", list(UBS_PELOTAS.keys()))
 with colB:
     mode = st.radio(
         "Modo de viagem",
