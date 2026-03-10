@@ -337,8 +337,9 @@ for i in range(1, st.session_state.num_stops + 1):
     )
     st.caption("📱 No celular: toque no campo e use o ícone 🎤 do teclado para falar o endereço.")
 
-    # Autocomplete: só mostra se ainda não confirmado via sugestão
-    addr_confirmed = bool(st.session_state.get(f"coords_{i}")) and st.session_state.get(f"coords_confirmed_{i}", False)
+    # Autocomplete: mostra sugestões apenas se o texto mudou desde a última confirmação
+    last_confirmed_text = st.session_state.get(f"confirmed_text_{i}", "")
+    addr_confirmed = (typed.strip() == last_confirmed_text) and bool(st.session_state.get(f"coords_{i}"))
     if typed and len(typed.strip()) >= 4 and not addr_confirmed:
         sugestoes = search_suggestions(typed.strip())
         if sugestoes:
@@ -355,7 +356,7 @@ for i in range(1, st.session_state.num_stops + 1):
                 idx_sug = opcoes.index(escolha) - 1
                 lat_s, lon_s = sugestoes[idx_sug][1], sugestoes[idx_sug][2]
                 st.session_state[f"coords_{i}"] = (lat_s, lon_s)
-                st.session_state[f"coords_confirmed_{i}"] = True
+                st.session_state[f"confirmed_text_{i}"] = escolha.strip()
                 st.rerun()
 
     # Botão remover (exceto se for a única parada)
@@ -365,10 +366,10 @@ for i in range(1, st.session_state.num_stops + 1):
                 for j in range(i, st.session_state.num_stops):
                     st.session_state[f"addr_{j}"] = st.session_state.get(f"addr_{j+1}", "")
                     st.session_state[f"coords_{j}"] = st.session_state.get(f"coords_{j+1}")
-                    st.session_state[f"coords_confirmed_{j}"] = st.session_state.get(f"coords_confirmed_{j+1}", False)
+                    st.session_state[f"confirmed_text_{j}"] = st.session_state.get(f"confirmed_text_{j+1}", "")
                 st.session_state[f"addr_{st.session_state.num_stops}"] = ""
                 st.session_state.pop(f"coords_{st.session_state.num_stops}", None)
-                st.session_state.pop(f"coords_confirmed_{st.session_state.num_stops}", None)
+                st.session_state.pop(f"confirmed_text_{st.session_state.num_stops}", None)
                 st.session_state.num_stops -= 1
                 st.rerun()
 
