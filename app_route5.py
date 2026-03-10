@@ -336,7 +336,9 @@ for i in range(1, st.session_state.num_stops + 1):
     st.caption("📱 No celular: toque no campo e use o ícone 🎤 do teclado para falar o endereço.")
 
     # Autocomplete: mostra sugestões se o usuário digitou algo
-    if typed and len(typed.strip()) >= 4:
+    # Não mostra sugestões se o endereço já foi confirmado via autocomplete
+    addr_confirmed = bool(st.session_state.get(f"coords_{i}"))
+    if typed and len(typed.strip()) >= 4 and not addr_confirmed:
         sugestoes = search_suggestions(typed.strip())
         if sugestoes:
             opcoes = ["— selecione uma sugestão —"] + [s[0] for s in sugestoes]
@@ -381,9 +383,10 @@ st.divider()
 # =========================
 # Calcular rota
 # =========================
-calc = st.button("🚀 Calcular melhor rota", type="primary")
+if st.button("🚀 Calcular melhor rota", type="primary"):
+    st.session_state["_calcular"] = True
 
-if calc:
+if st.session_state.pop("_calcular", False):
     # Coleta endereços preenchidos
     raw = []
     for i in range(1, st.session_state.num_stops + 1):
