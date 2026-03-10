@@ -322,6 +322,12 @@ for i in range(1, st.session_state.num_stops + 1):
         unsafe_allow_html=True,
     )
 
+    # Aplica sugestão pendente ANTES de renderizar o widget
+    pending_key = f"pending_addr_{i}"
+    if pending_key in st.session_state:
+        st.session_state[f"addr_{i}"] = st.session_state.pop(pending_key)
+        st.session_state.pop(f"coords_confirmed_{i}", None)
+
     # Campo de texto para digitação
     typed = st.text_input(
         f"Endereço {i}",
@@ -331,8 +337,9 @@ for i in range(1, st.session_state.num_stops + 1):
     )
     st.caption("📱 No celular: toque no campo e use o ícone 🎤 do teclado para falar o endereço.")
 
-    # Autocomplete: mostra sugestões se o usuário digitou algo
-    if typed and len(typed.strip()) >= 4:
+    # Autocomplete: só mostra se ainda não confirmado via sugestão
+    addr_confirmed = bool(st.session_state.get(f"coords_{i}")) and st.session_state.get(f"coords_confirmed_{i}", False)
+    if typed and len(typed.strip()) >= 4 and not addr_confirmed:
         sugestoes = search_suggestions(typed.strip())
         if sugestoes:
             opcoes = ["— selecione uma sugestão —"] + [s[0] for s in sugestoes]
@@ -343,12 +350,12 @@ for i in range(1, st.session_state.num_stops + 1):
                 label_visibility="collapsed",
             )
             if escolha != "— selecione uma sugestão —":
-                # Preenche o campo com a sugestão escolhida
-                st.session_state[f"addr_{i}"] = escolha
-                # Salva coordenadas já resolvidas para evitar geocoding redundante
+                # Grava em chave pendente (não toca no widget ativo)
+                st.session_state[pending_key] = escolha
                 idx_sug = opcoes.index(escolha) - 1
                 lat_s, lon_s = sugestoes[idx_sug][1], sugestoes[idx_sug][2]
                 st.session_state[f"coords_{i}"] = (lat_s, lon_s)
+                st.session_state[f"coords_confirmed_{i}"] = True
                 st.rerun()
 
     # Botão remover (exceto se for a única parada)
@@ -358,8 +365,10 @@ for i in range(1, st.session_state.num_stops + 1):
                 for j in range(i, st.session_state.num_stops):
                     st.session_state[f"addr_{j}"] = st.session_state.get(f"addr_{j+1}", "")
                     st.session_state[f"coords_{j}"] = st.session_state.get(f"coords_{j+1}")
+                    st.session_state[f"coords_confirmed_{j}"] = st.session_state.get(f"coords_confirmed_{j+1}", False)
                 st.session_state[f"addr_{st.session_state.num_stops}"] = ""
                 st.session_state.pop(f"coords_{st.session_state.num_stops}", None)
+                st.session_state.pop(f"coords_confirmed_{st.session_state.num_stops}", None)
                 st.session_state.num_stops -= 1
                 st.rerun()
 
@@ -378,9 +387,10 @@ st.divider()
 # =========================
 # Calcular rota
 # =========================
-calc = st.button("🚀 Calcular melhor rota", type="primary")
+if st.button("🚀 Calcular melhor rota", type="primary"):
+    st.session_state["_calcular"] = True
 
-if calc:
+if st.session_state.pop("_calcular", False):
     # Coleta endereços preenchidos
     raw = []
     for i in range(1, st.session_state.num_stops + 1):
