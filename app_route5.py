@@ -53,17 +53,24 @@ class Stop:
 # =========================
 @st.cache_data(show_spinner=False, ttl=24 * 3600)
 def geocode_pelotas(address: str) -> Optional[Tuple[float, float]]:
-    params = {"q": f"{address}, Pelotas, RS, Brasil", "format": "json", "limit": 1}
+    # Tenta variações do endereço para aumentar chance de geocoding
+    queries = [
+        f"{address}, Pelotas, RS, Brasil",
+        f"{address}, Pelotas, Brasil",
+        f"{address}, Pelotas",
+    ]
     headers = {"User-Agent": "rota-visita-ufpel/1.0 (educational)"}
-    try:
-        r = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=(4, 20))
-        r.raise_for_status()
-        data = r.json()
-        if not data:
-            return None
-        return float(data[0]["lat"]), float(data[0]["lon"])
-    except Exception:
-        return None
+    for q in queries:
+        try:
+            params = {"q": q, "format": "json", "limit": 1, "countrycodes": "br"}
+            r = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=(6, 25))
+            r.raise_for_status()
+            data = r.json()
+            if data:
+                return float(data[0]["lat"]), float(data[0]["lon"])
+        except Exception:
+            continue
+    return None
 
 
 # =========================
@@ -126,7 +133,7 @@ def search_suggestions(query: str) -> List[Tuple[str, float, float]]:
     }
     headers = {"User-Agent": "rota-visita-ufpel/1.0 (educational)"}
     try:
-        r = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=(4, 10))
+        r = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=(6, 15))
         r.raise_for_status()
         data = r.json()
         results = []
@@ -410,12 +417,12 @@ if calc:
                 stops.append(Stop(label=f"Parada {i}", address=addr, lat=lat, lon=lon))
 
         if erros:
-            st.error(
-                "❌ Não foi possível localizar os seguintes endereços:\n\n"
+            st.warning(
+                "⚠️ Não foi possível localizar automaticamente os seguintes endereços:\n\n"
                 + "\n".join(f"• {e}" for e in erros)
-                + "\n\nTente simplificar ou use as sugestões de autocomplete."
+                + "\n\nDica: use o autocomplete — digite o endereço e selecione uma sugestão da lista."
             )
-        elif not stops:
+        if not stops:
             st.error("Nenhum endereço válido encontrado.")
         else:
 
